@@ -32,12 +32,12 @@ docker kill bitcoind-data bitcoind-node || true
 docker rm bitcoind-data bitcoind-node || true
 
 # Always pull to avoid caching issues
-docker pull kylemanna/bitcoind
+docker pull hectorj/docker-bitcoind
 
-docker run --name=bitcoind-data kylemanna/bitcoind init
-docker run --volumes-from=bitcoind-data --name=bitcoind-node -d -p 8333:8333 -p 127.0.0.1:8332:8332 kylemanna/bitcoind bitcoind -disablewallet -rpcallowip=*
+docker run --name=bitcoind-data hectorj/docker-bitcoind init
+docker run --volumes-from=bitcoind-data --name=bitcoind-node -d -p 8333:8333 -p 127.0.0.1:8332:8332 hectorj/docker-bitcoind bitcoind -disablewallet -rpcallowip=*
 
 echo "JSON RPC credentials:"
 # Sleep to allow the node to generate the credentials and avoid the race...
 sleep 1
-docker run --volumes-from=bitcoind-data --rm -it kylemanna/bitcoind getconfig
+docker run --volumes-from=bitcoind-data --rm -it hectorj/docker-bitcoind getconfig
