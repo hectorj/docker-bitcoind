@@ -1,5 +1,5 @@
 FROM ubuntu:14.04
-MAINTAINER Kyle Manna <kyle@kylemanna.com>
+MAINTAINER Hector Jusforgues <docker@hectorj.net>
 
 RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 8842ce5e
 RUN echo "deb http://ppa.launchpad.net/bitcoin/bitcoin/ubuntu trusty main" > /etc/apt/sources.list.d/bitcoin.list
