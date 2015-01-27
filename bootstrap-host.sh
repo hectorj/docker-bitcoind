@@ -4,6 +4,8 @@
 #
 set -ex
 
+BTC_IMAGE=${BTC_IMAGE:-hectorj/docker-bitcoind}
+
 distro=$1
 shift
 
@@ -12,11 +14,11 @@ memtotal=$(grep ^MemTotal /proc/meminfo | awk '{print int($2/1024) }')
 #
 # Only do swap hack if needed
 #
-if [ $memtotal -lt 1024 -a $(swapon -s | wc -l) -lt 2 ]; then
-   fallocate -l 512M /swap
-   mkswap /swap
-   echo "/swap swap swap defaults 0 0" >> /etc/fstab
-   swapon -a
+if [ $memtotal -lt 2048 -a $(swapon -s | wc -l) -lt 2 ]; then
+    fallocate -l 2048M /swap || dd if=/dev/zero of=/swap bs=1M count=2048
+    mkswap /swap
+    grep -q "^/swap" /etc/fstab || echo "/swap swap swap defaults 0 0" >> /etc/fstab
+    swapon -a
 fi
 
 free -m
@@ -31,13 +33,22 @@ fi
 docker kill bitcoind-data bitcoind-node || true
 docker rm bitcoind-data bitcoind-node || true
 
-# Always pull to avoid caching issues
-docker pull hectorj/docker-bitcoind
+# Always pull remote images to avoid caching issues
+if [ -z "${BTC_IMAGE##*/*}" ]; then
+    docker pull $BTC_IMAGE
+fi
 
-docker run --name=bitcoind-data hectorj/docker-bitcoind init
-docker run --volumes-from=bitcoind-data --name=bitcoind-node -d -p 8333:8333 -p 127.0.0.1:8332:8332 hectorj/docker-bitcoind bitcoind -disablewallet -rpcallowip=*
+docker run --name=bitcoind-data -v /bitcoin busybox chown 1000:1000 /bitcoin
+docker run --volumes-from=bitcoind-data --rm $BTC_IMAGE btc_init
+#docker run --volumes-from=bitcoind-data --name=bitcoind-node -d -p 8333:8333 -p 127.0.0.1:8332:8332 $BTC_IMAGE bitcoind -rpcallowip=*
+curl https://raw.githubusercontent.com/kylemanna/docker-bitcoind/master/upstart.init > /etc/init/docker-bitcoind.conf
 
-echo "JSON RPC credentials:"
-# Sleep to allow the node to generate the credentials and avoid the race...
-sleep 1
-docker run --volumes-from=bitcoind-data --rm -it hectorj/docker-bitcoind getconfig
+# Bootstrap via bittorrent
+docker run --volumes-from=bitcoind-data --rm -p 6881:6881 -p 6882:6882 $BTC_IMAGE btc_bootstrap
+
+# Start bitcoind via upstart and docker
+start docker-bitcoind
+
+set +ex
+echo "Resulting bitcoin.conf:"
+docker run --volumes-from=bitcoind-data --rm $BTC_IMAGE cat /bitcoin/.bitcoin/bitcoin.conf
